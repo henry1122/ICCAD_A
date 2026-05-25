@@ -13,6 +13,25 @@ from . import graph
 from . import transform
 
 
+def _resolve_read_path(file_path: str, directory: str | None) -> Path:
+    """Try several path combinations for odd evaluator path wording."""
+    fp = file_path.strip().strip("'\"")
+    dir_part = (directory or "").strip().strip("'\"").rstrip("/\\")
+    candidates: list[Path] = []
+    if dir_part:
+        candidates.append(Path(dir_part) / fp)
+    p = Path(fp)
+    candidates.append(p)
+    if not p.is_absolute():
+        candidates.append(Path.cwd() / fp)
+        if dir_part:
+            candidates.append(Path.cwd() / dir_part / fp)
+    for c in candidates:
+        if c.is_file():
+            return c
+    return candidates[0] if candidates else p
+
+
 class EDAEngine:
     """Holds current design state and executes EDA operations."""
 
@@ -26,9 +45,7 @@ class EDAEngine:
     def read_design(self, file_path: str, directory: str | None = None) -> dict[str, Any]:
         """Load gate-level Verilog into internal representation. Returns result message."""
         try:
-            path = Path(file_path)
-            if directory:
-                path = Path(directory) / path
+            path = _resolve_read_path(file_path, directory)
             self.design = read_verilog(path)
             return {
                 "ok": True,
@@ -138,6 +155,117 @@ class EDAEngine:
         n = transform.remove_dangling(self.design)
         return {"ok": True, "message": f"Removed {n} dangling gate(s)/net(s).", "removed": n}
 
+    def get_fanout(self, signal: str) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        sig = graph.resolve_signal(self.design, signal)
+        fo = graph.fanout_count(self.design, sig)
+        cells = graph.fanout_cells(self.design, sig)
+        return {
+            "ok": True,
+            "message": f"Fanout of {sig} is {fo} (loads: {', '.join(cells[:15])}{'...' if len(cells) > 15 else ''}).",
+            "fanout": fo,
+            "loads": cells,
+        }
+
+    def limit_fanout(self, signal: str, max_fanout: int) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        if signal.lower() in ("all", "*", "global", "design"):
+            n = transform.limit_fanout_global(self.design, max_fanout)
+            scope = "entire design"
+        else:
+            n = transform.limit_fanout(self.design, signal, max_fanout)
+            scope = graph.resolve_signal(self.design, signal)
+        return {
+            "ok": True,
+            "message": f"Inserted {n} buffer(s) to limit fanout on {scope} to <={max_fanout}.",
+            "inserted": n,
+        }
+
+    def replace_inv_buf_pairs(self) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        n = transform.replace_inv_buf_pairs(self.design)
+        return {
+            "ok": True,
+            "message": f"Replaced {n} inverter-buffer pair(s) with a single inverter.",
+            "replaced": n,
+        }
+
+    def replace_or_with_nand_in_cone(self, signal: str) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        n = transform.replace_or_with_nand_in_cone(self.design, signal)
+        sig = graph.resolve_signal(self.design, signal)
+        return {
+            "ok": True,
+            "message": f"Replaced {n} OR gate(s) in the cone of {sig} with NAND+NOT equivalent logic.",
+            "replaced": n,
+        }
+
+    def optimize_cone_depth(self, signal: str, max_depth: int) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        n = transform.optimize_cone_depth(self.design, signal, max_depth)
+        sig = graph.resolve_signal(self.design, signal)
+        depth = graph.cone_max_depth(self.design, sig)
+        return {
+            "ok": True,
+            "message": (
+                f"Optimized cone of {sig}: applied {n} simplification step(s); "
+                f"cone max depth is now {depth} (target <={max_depth})."
+            ),
+            "steps": n,
+            "depth": depth,
+        }
+
+    def reduce_cone_gates(self, signal: str) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        n = transform.reduce_cone_gates(self.design, signal)
+        sig = graph.resolve_signal(self.design, signal)
+        gates = graph.cone_gate_count(self.design, sig)
+        return {
+            "ok": True,
+            "message": f"Reduced cone of {sig}: removed {n} redundant buffer(s); cone has {gates} gates.",
+            "removed": n,
+            "gate_count": gates,
+        }
+
+    def balance_depth_to_targets(
+        self, from_signal: str, target_signals: list[str], max_depth: int
+    ) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        n = transform.balance_depth_to_targets(
+            self.design, from_signal, target_signals, max_depth
+        )
+        return {
+            "ok": True,
+            "message": (
+                f"Inserted {n} buffer(s) balancing depth from {from_signal} "
+                f"to {', '.join(target_signals)} with max depth <={max_depth}."
+            ),
+            "inserted": n,
+        }
+
+    def list_cone_gates(self, signal: str, gate_type: str | None = None) -> dict[str, Any]:
+        if self.design is None:
+            return {"ok": False, "message": "No design loaded."}
+        sig = graph.resolve_signal(self.design, signal)
+        cone = graph.cone_primitives(self.design, sig)
+        if gate_type:
+            cone = [g for g in cone if g.type == gate_type]
+        names = [g.name for g in cone]
+        msg = f"Cone of {sig} has {len(names)} gate(s)"
+        if gate_type:
+            msg += f" of type {gate_type}"
+        msg += ": " + ", ".join(names[:25])
+        if len(names) > 25:
+            msg += f" ... and {len(names) - 25} more."
+        return {"ok": True, "message": msg, "gates": names}
+
     def execute(self, tool: str, args: dict[str, Any]) -> dict[str, Any]:
         """Execute one EDA operation by name. Returns result dict for the agent."""
         if tool == "read_design":
@@ -181,5 +309,35 @@ class EDAEngine:
             )
         if tool == "remove_dangling":
             return self.remove_dangling()
+        if tool == "get_fanout":
+            return self.get_fanout(args.get("signal", ""))
+        if tool == "limit_fanout":
+            return self.limit_fanout(
+                args.get("signal", "global"),
+                int(args.get("max_fanout", 8)),
+            )
+        if tool == "replace_inv_buf_pairs":
+            return self.replace_inv_buf_pairs()
+        if tool == "replace_or_with_nand_in_cone":
+            return self.replace_or_with_nand_in_cone(args.get("signal", ""))
+        if tool == "optimize_cone_depth":
+            return self.optimize_cone_depth(
+                args.get("signal", ""), int(args.get("max_depth", 5))
+            )
+        if tool == "reduce_cone_gates":
+            return self.reduce_cone_gates(args.get("signal", ""))
+        if tool == "balance_depth_to_targets":
+            targets = args.get("target_signals") or args.get("targets") or []
+            if isinstance(targets, str):
+                targets = [t.strip() for t in targets.replace("{", "").replace("}", "").split(",")]
+            return self.balance_depth_to_targets(
+                args.get("from_signal", ""),
+                targets,
+                int(args.get("max_depth", 5)),
+            )
+        if tool == "list_cone_gates":
+            return self.list_cone_gates(
+                args.get("signal", ""), args.get("gate_type")
+            )
 
         return {"ok": False, "message": f"Unknown or unimplemented tool: {tool}"}

@@ -74,3 +74,23 @@ Read in design from top.v
 （不加 directory，則會從執行時的當前目錄找 `top.v`。執行時請在 `ICCAD_A` 下，且先把 `testdata/design/top.v` 複製到 `ICCAD_A/top.v`，或改用 `testdata/design/top.v` 當路徑。）
 
 使用 `test_input.txt` 時，已指定 `directory testdata/design/`，所以會讀 `testdata/design/top.v`，無需複製。
+
+### 離線測試（不需 API key）
+
+規則式解析器會先處理常見指令，可用下列指令驗證（不呼叫 LLM）：
+
+```powershell
+python testdata/test_rules_offline.py test_input
+python testdata/test_rules_offline.py test_weird
+```
+
+`test_weird.txt` 含多餘空白、引號、口語化用詞等邊界測試。
+
+### 進階測試（Section 4.3 變換）
+
+```powershell
+python testdata/test_rules_offline.py test_advanced
+Get-Content testdata\test_advanced.txt | python main.py -config config.yaml
+```
+
+涵蓋：fanout 查詢/限制、移除 dangling、INV+BUF 合併、cone 深度優化等。

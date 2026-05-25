@@ -1,0 +1,6 @@
+This is the beginning of testcase weird1. Please output a copy of the log into weird1.log.
+  Load   design   from   "top.v"   in   directory   testdata/design/   
+What's the max logic depth from input in0 to output out0 ?
+List ALL buffers whose name includes "_gc__"
+Replace buffers containing _gc__ with AND; connect other input to 1'b1
+Write the modified netlist to testdata/weird1_out.v

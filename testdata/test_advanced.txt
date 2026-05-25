@@ -1,0 +1,8 @@
+This is the beginning of testcase advanced. Please output a copy of the log into advanced.log.
+Load design from top.v in directory testdata/design/
+What is the fanout of net n2?
+Insert buffer stages on high-fanout net n2 so that no gate has fanout greater than 2.
+Remove any dangling gates and nets that do not affect any primary output.
+Replace all inverters followed by buffers with a single inverter, if this does not change functionality.
+Optimize the logic cone of out0 so that the maximum depth is less than or equal to 2.
+Write out the design to testdata/advanced_out.v

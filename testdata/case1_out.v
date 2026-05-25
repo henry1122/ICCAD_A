@@ -12,5 +12,5 @@ module top (
   not U1 ( .o(n1), .i(in0) );
   and U2 ( .o(n2), .a(n1), .b(in1) );
   buf U3 ( .o(out0), .i(n2) );
-  and U_gc__bufand_0 ( .o(out1), .a(in0), .b(1'b1) );
+  and U_gc__buf_and ( .o(out1), .a(in0), .b(1) );
 endmodule

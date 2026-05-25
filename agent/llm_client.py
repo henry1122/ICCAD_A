@@ -25,9 +25,25 @@ ANALYSIS (Section 4.2):
 - list_primary_outputs_cone_above: POs whose cone has more than N gates. Args: "min_gates" (number).
 - same_clock_domain: Do two DFFs share the same clock? Args: "dff1", "dff2".
 
+ANALYSIS (extra):
+- get_fanout: Fanout count of a net. Args: "signal".
+- list_cone_gates: List gates in logic cone. Args: "signal"; optional "gate_type".
+
 TRANSFORMATION (Section 4.3):
 - replace_buffers_with_and: Replace buffers (name containing substring) with AND; other input to given net. Args: "name_substring", "other_input_net".
 - remove_dangling: Remove gates/nets not affecting any primary output. Args: none.
+- limit_fanout: Insert buffers so fanout ≤ max. Args: "signal" (or "global"), "max_fanout".
+- replace_inv_buf_pairs: Merge inverter+buffer chains into one inverter. Args: none.
+- replace_or_with_nand_in_cone: Replace OR gates in cone with NAND+NOT. Args: "signal".
+- optimize_cone_depth: Insert buffers to reduce cone depth. Args: "signal", "max_depth".
+- reduce_cone_gates: Remove redundant buffers in cone. Args: "signal".
+- balance_depth_to_targets: Balance depth from A to multiple outputs. Args: "from_signal", "target_signals" (list), "max_depth".
+
+Rules:
+- Output ONLY one JSON object. No markdown, no explanation outside JSON.
+- If no design is loaded, call read_design before other tools (except write after load).
+- Use exact signal names from the user (e.g. in0, out0); strip only "input"/"output" prefixes if present.
+- Copy file paths from the user verbatim into args.
 
 Respond with exactly one JSON object:
 - To call a tool: {"tool": "<tool_name>", "args": { ... }}

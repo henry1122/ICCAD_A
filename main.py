@@ -26,16 +26,50 @@ from eda.engine import EDAEngine
 from agent import load_config, run_agent
 
 
+def _normalize_stdin_line(line: str) -> str:
+    line = line.strip().strip("\ufeff")
+    for a, b in (("\u2018", "'"), ("\u2019", "'"), ("\u201c", '"'), ("\u201d", '"')):
+        line = line.replace(a, b)
+    return line
+
+
 def extract_testcase_name(line: str) -> str | None:
-    """Parse 'This is the beginning of testcase case28.' -> 'case28'."""
-    m = re.search(r"testcase\s+(\w+)", line, re.IGNORECASE)
-    return m.group(1) if m else None
+    """Parse testcase start lines with varied wording."""
+    patterns = [
+        r"testcase\s+['\"]?(\w+)['\"]?",
+        r"case\s+name\s+(?:is\s+)?['\"]?(\w+)['\"]?",
+        r"beginning\s+of\s+(?:a\s+)?(?:new\s+)?testcase\s+['\"]?(\w+)['\"]?",
+        r"start(?:ing)?\s+testcase\s+['\"]?(\w+)['\"]?",
+    ]
+    for pat in patterns:
+        m = re.search(pat, line, re.IGNORECASE)
+        if m:
+            return m.group(1)
+    return None
 
 
 def extract_log_path(line: str) -> str | None:
-    """Parse '... output a copy of the log into case23.log' -> 'case23.log'."""
-    m = re.search(r"(\w+\.log)", line, re.IGNORECASE)
-    return m.group(1) if m else None
+    """Parse log file hints from testcase preamble."""
+    patterns = [
+        r"(?:log\s+(?:file\s+)?(?:named\s+|called\s+)?|into\s+|to\s+)['\"]?([\w.-]+\.log)['\"]?",
+        r"record(?:ed)?\s+(?:to|in)\s+['\"]?([\w.-]+\.log)['\"]?",
+        r"([\w.-]+\.log)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, line, re.IGNORECASE)
+        if m:
+            return m.group(1)
+    return None
+
+
+def is_testcase_begin(line: str) -> bool:
+    lower = line.lower()
+    return (
+        "testcase" in lower
+        or "case name" in lower
+        or ("beginning" in lower and "case" in lower)
+        or ("log" in lower and ".log" in lower)
+    )
 
 
 def main() -> int:
@@ -67,14 +101,14 @@ def main() -> int:
             log_file.flush()
 
     for line in sys.stdin:
-        line = line.rstrip("\n\r")
-        if not line.strip():
+        line = _normalize_stdin_line(line.rstrip("\n\r"))
+        if not line:
             continue
 
         # Beginning of testcase (Section 3.3): reset state, set log file, response_id from 1
-        case_name = extract_testcase_name(line)
-        requested_log = extract_log_path(line)
-        if case_name or requested_log:
+        if is_testcase_begin(line):
+            case_name = extract_testcase_name(line)
+            requested_log = extract_log_path(line)
             engine.reset()  # Clean state for this testcase
             response_id = 0   # So first emit_response is #RESPONSE 1
             log_name = requested_log or f"{case_name}.log"
@@ -90,7 +124,7 @@ def main() -> int:
             )
             continue
 
-        # Normal request: ask LLM and execute (may run multiple tool steps per Section 4.4)
+        # Normal request: rules first, then LLM (may run multiple tool steps per Section 4.4)
         response_text = run_agent(config, line, engine_callback)
         emit_response(response_text)
 

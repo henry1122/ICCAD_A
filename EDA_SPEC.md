@@ -35,6 +35,8 @@ Testcase name and log file are handled by the main loop when the evaluator sends
 | `cone_stats` | Gate count and max depth of logic cone of a signal. | `signal`. |
 | `list_primary_outputs_cone_above` | Primary outputs whose cone has more than N gates. | `min_gates` (number). |
 | `same_clock_domain` | Whether two DFFs share the same clock net. | `dff1`, `dff2`. |
+| `get_fanout` | Fanout (load count) of a net. | `signal`. |
+| `list_cone_gates` | List gates in the logic cone of a signal. | `signal`; optional `gate_type`. |
 
 ---
 
@@ -44,8 +46,12 @@ Testcase name and log file are handled by the main loop when the evaluator sends
 |-----------|-------------|-----------|
 | `replace_buffers_with_and` | Replace buffers whose name contains a substring with 2-input AND; other input tied to given net. | `name_substring`, `other_input_net`. |
 | `remove_dangling` | Remove gates/nets not in any path to a primary output. | (none) |
-
-Additional transforms (buffer insertion for fanout/depth, cone optimization, equivalence-preserving rewrites) can be added as needed.
+| `limit_fanout` | Insert buffers so fanout ≤ limit (preserves function). | `signal` (or `global`), `max_fanout`. |
+| `replace_inv_buf_pairs` | Replace inverter followed by buffer with single inverter. | (none) |
+| `replace_or_with_nand_in_cone` | Replace OR gates in cone with NAND+NOT equivalent. | `signal`. |
+| `optimize_cone_depth` | Simplify cone (remove redundant buffers, merge INV+BUF) so depth ≤ limit. | `signal`, `max_depth`. |
+| `reduce_cone_gates` | Remove redundant buffers in cone. | `signal`. |
+| `balance_depth_to_targets` | Balance depth from one source to multiple targets. | `from_signal`, `target_signals`, `max_depth`. |
 
 ---
 
