@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""ICCAD Problem A executable. Invoke: ./cada0001_alpha -config <config_file_path>"""
+import sys
+from pathlib import Path
+
+# Run from project root
+root = Path(__file__).resolve().parent
+sys.path.insert(0, str(root))
+sys.argv[0] = str(root / "main.py")
+
+# Delegate to main
+import main
+sys.exit(main.main())

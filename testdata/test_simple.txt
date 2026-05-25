@@ -1,0 +1,4 @@
+This is the beginning of testcase simple. Please output a copy of the log into simple.log.
+Read in design from simple.v in folder testdata/design/
+What is the maximum logic depth from input in0 to output out0?
+Write out the design to testdata/simple_out.v

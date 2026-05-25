@@ -1,0 +1,6 @@
+This is the beginning of testcase case1. Please output a copy of the log into case1.log.
+Load design from top.v in directory testdata/design/
+What is the maximum logic depth from input in0 to output out0?
+List all buffers whose name includes _gc__
+Replace the buffers that contain _gc__ with an AND gate and connect the other input to 1'b1.
+Write out the design to testdata/case1_out.v

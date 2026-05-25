@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Local config with API keys - do NOT commit
+config.yaml
+
+# VSCode / Cursor
+.vscode/
+.cursor/
+
